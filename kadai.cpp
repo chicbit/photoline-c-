@@ -159,6 +159,43 @@ size_t callbackWrite(char *ptr, size_t size, size_t nmemb, string *stream)
         return dataLength;
 }
 
+bool http_s3(string file_name){
+        CURL *curl;
+        CURLcode res;
+        struct curl_httppost *post = NULL;
+        struct curl_httppost *last = NULL;
+
+        curl_global_init(CURL_GLOBAL_ALL);
+        curl = curl_easy_init();
+        string chunk;
+
+        // curl初期化のエラー処理
+        if (curl == NULL) {
+                cerr << "curl_easy_init() failed" << endl;
+                return false;
+        }
+
+        // urlとpathの設定
+        string path = "path=" + file_name;
+        string url = "http://localhost:8000/s3?" + path;
+
+        if(curl) {
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            /* example.com is redirected, so we tell libcurl to follow redirection */ 
+            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+         
+            /* Perform the request, res will get the return code */ 
+            res = curl_easy_perform(curl);
+            /* Check for errors */ 
+            if(res != CURLE_OK)
+              fprintf(stderr, "curl_easy_perform() failed: %s\n",
+                      curl_easy_strerror(res));
+         
+            /* always cleanup */ 
+            curl_easy_cleanup(curl);
+          }
+        return true;
+}
 
 bool http_communication(string file_name){
         CURL *curl;
@@ -175,12 +212,6 @@ bool http_communication(string file_name){
                 cerr << "curl_easy_init() failed" << endl;
                 return false;
         }
-
-        // base64に変換して表示
-        // string base64_str;
-        // printf("%s\n", typeid(face.data).name());
-        // const uchar* inBuffer = face.data;
-        // base64_str = base64_encode(inBuffer, face.rows * face.cols);
 
         // urlとpathの設定
         string url = "http://localhost:8000/mail";
@@ -287,7 +318,7 @@ int main()
     string datetime(s);
 
     // 顔の画像を出力する
-    const string file_name = "./files/" + datetime + ".jpg";
+    const string file_name = "/usr/local/var/www/htdocs/opencv-kadai/storage/app/" + datetime + ".jpg";
     if(cv::imwrite(file_name, mosaic)){
         cout << "imwrite:" << file_name << " ... success" << endl;
     }else{
@@ -305,23 +336,8 @@ int main()
         return 1;
     }
 
-    // データを格納するベクトル準備
-    vector<cv::Mat> data;
-
-    for (int i = 0; i < path.size(); ++i)
-    {
-        printf("%s\n", path[i].c_str());
-        cv::Mat tmp;
-        tmp = cv::imread(path[i].c_str(), 1);
-          if(tmp.empty()){
-            fprintf(stderr, "cannot open %s\n", path[i].c_str());
-            exit(0);
-          }
-        data.push_back(tmp);
-    }
-
-    // http通信で顔が認識されたところでメールを送信する
-    if (!http_communication(file_name))
+    // ここでデータベースにデータを保存する
+    if (!http_s3(datetime))
     {
         perror("HTTP COMMUNICATION Failed....\n");
         return -1;
