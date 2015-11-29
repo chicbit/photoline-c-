@@ -197,6 +197,44 @@ bool http_s3(string file_name){
         return true;
 }
 
+bool http_s3_full(string file_name){
+        CURL *curl;
+        CURLcode res;
+        struct curl_httppost *post = NULL;
+        struct curl_httppost *last = NULL;
+
+        curl_global_init(CURL_GLOBAL_ALL);
+        curl = curl_easy_init();
+        string chunk;
+
+        // curl初期化のエラー処理
+        if (curl == NULL) {
+                cerr << "curl_easy_init() failed" << endl;
+                return false;
+        }
+
+        // urlとpathの設定
+        string path = "path=" + file_name;
+        string url = "http://localhost:8000/s3_full?" + path;
+
+        if(curl) {
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            /* example.com is redirected, so we tell libcurl to follow redirection */ 
+            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+         
+            /* Perform the request, res will get the return code */ 
+            res = curl_easy_perform(curl);
+            /* Check for errors */ 
+            if(res != CURLE_OK)
+              fprintf(stderr, "curl_easy_perform() failed: %s\n",
+                      curl_easy_strerror(res));
+         
+            /* always cleanup */ 
+            curl_easy_cleanup(curl);
+          }
+        return true;
+}
+
 bool http_communication(string file_name){
         CURL *curl;
         CURLcode ret;
@@ -296,7 +334,7 @@ int main()
             radius = cv::saturate_cast<int>((faces[i].width + faces[i].height)*0.25*scale);
             //mosaic
             if(size_of_face < 1) size_of_face = 1;
-            cv::Rect roi_rect(center.x-radius, center.y-radius, radius*2, radius*2);
+            cv::Rect roi_rect(center.x-radius - 20, center.y-radius -50, radius*2 + 40, radius*2 + 100);
             mosaic = frame(roi_rect);
         }
         
@@ -325,6 +363,13 @@ int main()
         cout << "imwrite:" << file_name << " ... failure" << endl;
     }
 
+    const string file_name_full = "/usr/local/var/www/htdocs/opencv-kadai/storage/app/" + datetime + "_full.jpg";
+    if(cv::imwrite(file_name_full, frame)){
+        cout << "imwrite:" << file_name_full << " ... success" << endl;
+    }else{
+        cout << "imwrite:" << file_name_full << " ... failure" << endl;
+    }
+
     // データベースからファイルのパスを受け取る
     // これをテストデータとして以下作業をしていく
     try {
@@ -338,6 +383,12 @@ int main()
 
     // ここでデータベースにデータを保存する
     if (!http_s3(datetime))
+    {
+        perror("HTTP COMMUNICATION Failed....\n");
+        return -1;
+    }
+
+    if (!http_s3_full(datetime + "_full"))
     {
         perror("HTTP COMMUNICATION Failed....\n");
         return -1;
