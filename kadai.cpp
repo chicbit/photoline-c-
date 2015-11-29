@@ -159,7 +159,10 @@ size_t callbackWrite(char *ptr, size_t size, size_t nmemb, string *stream)
         return dataLength;
 }
 
-bool http_s3(string file_name){
+// option 
+// 0: 顔画像 
+// 1: 全体の画像
+bool http_s3(string file_name, int option){
         CURL *curl;
         CURLcode res;
         struct curl_httppost *post = NULL;
@@ -177,7 +180,14 @@ bool http_s3(string file_name){
 
         // urlとpathの設定
         string path = "path=" + file_name;
-        string url = "http://localhost:8000/s3?" + path;
+        string url;
+        if (option == 0)
+        {
+            url = "http://localhost:8000/s3?" + path;
+        } else
+        {
+            url = "http://localhost:8000/s3_full?" + path;
+        }
 
         if(curl) {
             curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -194,92 +204,6 @@ bool http_s3(string file_name){
             /* always cleanup */ 
             curl_easy_cleanup(curl);
           }
-        return true;
-}
-
-bool http_s3_full(string file_name){
-        CURL *curl;
-        CURLcode res;
-        struct curl_httppost *post = NULL;
-        struct curl_httppost *last = NULL;
-
-        curl_global_init(CURL_GLOBAL_ALL);
-        curl = curl_easy_init();
-        string chunk;
-
-        // curl初期化のエラー処理
-        if (curl == NULL) {
-                cerr << "curl_easy_init() failed" << endl;
-                return false;
-        }
-
-        // urlとpathの設定
-        string path = "path=" + file_name;
-        string url = "http://localhost:8000/s3_full?" + path;
-
-        if(curl) {
-            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-            /* example.com is redirected, so we tell libcurl to follow redirection */ 
-            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-         
-            /* Perform the request, res will get the return code */ 
-            res = curl_easy_perform(curl);
-            /* Check for errors */ 
-            if(res != CURLE_OK)
-              fprintf(stderr, "curl_easy_perform() failed: %s\n",
-                      curl_easy_strerror(res));
-         
-            /* always cleanup */ 
-            curl_easy_cleanup(curl);
-          }
-        return true;
-}
-
-bool http_communication(string file_name){
-        CURL *curl;
-        CURLcode ret;
-        struct curl_httppost *post = NULL;
-        struct curl_httppost *last = NULL;
-
-        curl_global_init(CURL_GLOBAL_ALL);
-        curl = curl_easy_init();
-        string chunk;
-
-        // curl初期化のエラー処理
-        if (curl == NULL) {
-                cerr << "curl_easy_init() failed" << endl;
-                return false;
-        }
-
-        // urlとpathの設定
-        string url = "http://localhost:8000/mail";
-        string path = "path=" + file_name;
-
-        // パラメータ設定
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callbackWrite);
-        // curl_formadd(&post, &last,
-        //     CURLFORM_COPYNAME, "file",
-        //     CURLFORM_FILECONTENT, file_name.c_str(), 
-        //     CURLFORM_END
-        // );
-        // curl_easy_setopt(curl, CURLOPT_HTTPPOST, post);
-        
-        curl_easy_setopt(curl, CURLOPT_POST, 1);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, path.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &chunk);
-        ret = curl_easy_perform(curl);
-        curl_formfree(post);
-        curl_easy_cleanup(curl);
-        curl_global_cleanup();
-
-        // http通信のエラー処理
-        if (ret != CURLE_OK) {
-                cerr << "curl_easy_perform() failed." << endl;
-                return false;
-        }
-
-        cout << chunk << endl;
         return true;
 }
 
@@ -382,13 +306,13 @@ int main()
     }
 
     // ここでデータベースにデータを保存する
-    if (!http_s3(datetime))
+    if (!http_s3(datetime, 0))
     {
         perror("HTTP COMMUNICATION Failed....\n");
         return -1;
     }
 
-    if (!http_s3_full(datetime + "_full"))
+    if (!http_s3(datetime + "_full", 1))
     {
         perror("HTTP COMMUNICATION Failed....\n");
         return -1;
